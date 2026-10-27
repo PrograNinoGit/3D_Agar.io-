@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <RootNamespace>Agar3D</RootNamespace>
+    <AssemblyName>Agar3D</AssemblyName>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- MonoGame: Spiele-Framework mit Fenster, Eingabe und 3D-Grafik (OpenGL) -->
+    <PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.*" />
+    <!-- Wird nur benutzt, um Text (Menue, HUD, Namen) in Texturen zu rendern -->
+    <PackageReference Include="System.Drawing.Common" Version="8.0.*" />
+  </ItemGroup>
+
+</Project>

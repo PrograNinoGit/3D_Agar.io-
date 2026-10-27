@@ -1,76 +1,43 @@
-# Agar3D
+# Agar.io Klon 3D (C# / MonoGame)
 
-Ein Agar.io-Klon in **3D**, geschrieben in C# mit MonoGame. Du schwimmst als Kugel durch eine würfelförmige Arena, frisst Futter und kleinere Zellen und weichst größeren aus. Alle 3D-Formen entstehen im Code, es werden keine Modelldateien gebraucht.
+Portierung des Java-Projekts **Agar.io-KLon** (Swing/AWT, 2D) nach **C#** mit echter **3D-Darstellung**.
+Die komplette Spiellogik (Bots, Splitten, Viren, Masse ausstoßen, Schwierigkeitsgrade) ist 1:1 übernommen –
+nur die Darstellung ist jetzt 3D: Kugeln mit Beleuchtung, Schatten, Stachelkugel-Viren, Mauern und eine drehbare Verfolgerkamera.
 
-## Voraussetzungen
+## Starten in Visual Studio
 
-- .NET 8 SDK
-- Visual Studio 2022 oder neuer (oder `dotnet` auf der Kommandozeile)
-- MonoGame.Framework.DesktopGL 3.8.x (kommt per NuGet)
-- Windows, weil `TextRenderer` System.Drawing nutzt und die Schrift "Segoe UI" verwendet
+1. **Visual Studio 2022 (17.8 oder neuer)** mit der Workload *„.NET-Desktopentwicklung“*.
+   Benötigt wird das **.NET 8 SDK** (ist in VS 2022 17.8+ enthalten).
+2. `Agar3D.sln` öffnen.
+3. **F5** drücken. Beim ersten Start lädt Visual Studio die NuGet-Pakete (MonoGame) automatisch herunter.
 
-## Starten
-
-```
-dotnet run --project Agar3D
-```
-
-Oder in Visual Studio das Projekt öffnen und `F5` drücken. Das Spiel startet im Vollbild.
+Alternativ per Konsole: `dotnet run --project Agar3D`
 
 ## Steuerung
 
-| Taste | Aktion |
+| Taste / Maus | Aktion |
 |---|---|
-| Maus | Blickrichtung. Du schwimmst dorthin, wohin du schaust. Hoch schauen = steigen, runter schauen = sinken |
+| Maus | Zellen laufen zum Mauszeiger (auf dem Boden) |
+| Leertaste | Teilen |
+| W | Masse ausstoßen (gedrückt halten wiederholt) |
 | Q / E | Kamera nach links / rechts drehen |
-| Mausrad | Kamera neigen |
-| Leertaste | Teilen (Split) in Blickrichtung |
-| W | Masse ausstoßen (halten = wiederholen) |
-| R | Neustart nach Game Over |
-| M | Zurück ins Menü nach Game Over |
-| Esc | Spiel beenden |
+| Mausrad | Kamera neigen (flacher / steiler) |
+| R / M | Nach Game Over: Neustart / Menü |
+| ESC | Spiel beenden |
 
-## Spielregeln
+## Aufbau (Java → C#)
 
-- **Fressen:** Eine Zelle frisst eine andere, wenn ihr Radius mehr als 10 % größer ist und die Mittelpunkte nah genug beieinander liegen. Der Abstand wird in 3D gemessen.
-- **Futter:** Kleine Kugeln, die überall in der Arena schweben und dich wachsen lassen.
-- **Split:** Teilt jede deiner Zellen in zwei Hälften. Die neue Zelle wird in Blickrichtung geschleudert. Nach einer Wartezeit verschmelzen die Teile wieder.
-- **Masse ausstoßen:** Du verlierst etwas Masse und schießt ein Pellet in Blickrichtung. Ein Virus, das siebenmal gefüttert wird, spaltet einen neuen Virus ab.
-- **Viren:** Grüne Stachelkugeln. Wenn du deutlich größer bist als ein Virus und hineinläuft, platzt du in mehrere Teile.
-- **Arena:** 4000 × 4000 × 1200 Einheiten. Alle Objekte bleiben innerhalb, auch in der Höhe.
-
-## Schwierigkeitsgrade
-
-| Modus | Verhalten der Bots |
+| Java | C# |
 |---|---|
-| Leicht | Wandern zufällig durch die Arena |
-| Schwer | Meiden dich, wenn du größer bist, und jagen dich, wenn du kleiner bist |
-| Extrem | Wie Schwer, außerdem teilen sich die Bots, um dich zu fangen |
+| `Main`, `GameFrame` | `Program.cs`, `AgarGame.cs` (Fenster, Menü/Spiel-Umschaltung, Eingabe, HUD) |
+| `GamePanel` (Logik) | `GameWorld.cs` (Bewegung, KI, Kollisionen – ohne Rendering) |
+| `GamePanel` (Zeichnen) | `Rendering/Renderer3D.cs` (3D-Szene, Kamera, Namen) |
+| `MenuPanel` | `MenuScreen.cs` |
+| `Cell`, `Bot`, `Food`, `Virus`, `EjectedMass`, `Difficulty` | `Model/*.cs` |
 
-## Projektstruktur
+Aus Java `x / y` wurde in C# `X / Z`: Die Spielfläche liegt in der X/Z-Ebene, Y ist „oben“.
+Die Maus wird per Strahl auf den Boden projiziert, dadurch steuert sie in 3D genauso wie im 2D-Original.
 
-```
-Agar3D/
-├── Program.cs              Einstiegspunkt
-├── AgarGame.cs             Fenster, Eingabe, HUD, Menü/Spiel-Umschaltung
-├── MenuScreen.cs           Startmenü mit Schwierigkeitswahl
-├── Model/
-│   ├── GameWorld.cs        Spiellogik: Bewegung, Kollisionen, Bots, Spawning (alles 3D)
-│   ├── Cell.cs             Zelle mit X/Y/Z, Radius, Richtung und Boost
-│   ├── Bot.cs              Bot aus einer oder mehreren Zellen
-│   ├── Food.cs             Futterkugel
-│   ├── EjectedMass.cs      Ausgestoßenes Pellet
-│   ├── Virus.cs            Stachelkugel
-│   └── Difficulty.cs       Schwierigkeitsgrade
-└── Rendering/
-    ├── Renderer3D.cs       Kamera, Zeichnen der Welt, Namen über den Zellen
-    ├── MeshFactory.cs      Erzeugt Kugeln, Stachelkugeln, Boden, Gitter und Wände im Code
-    └── TextRenderer.cs     Text per GDI+ in Texturen, ohne SpriteFont-Dateien
-```
-
-## Hinweise für Entwickler
-
-- Alle Objekte speichern den **Mittelpunkt** ihrer Kugel in `X`, `Y`, `Z`.
-- `GameWorld.Update()` läuft mit 60 Ticks pro Sekunde und wird aus `AgarGame` aufgerufen.
-- Die Bewegungsrichtung kommt aus `Renderer3D.GetLookDirection()` und wird über `GameWorld.SetAimDirection()` gesetzt. Split und Eject nutzen dieselbe Richtung.
-- Die Weltgrößen stehen als Konstanten in `GameWorld` (`WorldWidth`, `WorldDepth`, `WorldHeight`).
+Alle 3D-Formen (Kugeln, Stachelkugel, Mauern, Boden) werden im Code erzeugt (`Rendering/MeshFactory.cs`),
+es werden keine Modell- oder Content-Dateien benötigt. Text wird über `System.Drawing` in Texturen gerendert
+(`Rendering/TextRenderer.cs`), deshalb läuft das Projekt nur unter Windows (`net8.0-windows`).
