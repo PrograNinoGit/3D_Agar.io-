@@ -23,13 +23,18 @@ namespace Agar3D.Model
         private const double StartRadius = 20;
         private const double MaxRadius = 300;
         private const double MinSplitRadius = 18;
-        private const double MinEjectRadius = 24;
-        private const double EjectMassLoss = 20;
+        private const double MinEjectRadius = 18;
+        private const double EjectMassLoss = 25;
         private const double EjectRadius = 5;
         private const double SplitBoost = 22;
         private const double EjectSpeed = 16;
         private const int MergeDelayTicks = 420;
         private const double VirusRadius = 38;
+
+        // Selbststaendiges Zusammenfuegen (nach Ablauf von MergeDelayTicks)
+        private const double CohesionSpeed = 0.8;   // staendige schwache Anziehung, auch waehrend des Cooldowns (Einheiten pro Tick)
+        private const double MergePullSpeed = 2.0;  // staerkere Anziehung merge-bereiter Zellen (Einheiten pro Tick)
+        private const double MergeReach = 0.5;      // Merge sobald d < big.Radius + small.Radius * MergeReach
 
         private static readonly string[] BotNames =
         {
@@ -80,7 +85,7 @@ namespace Agar3D.Model
                 }
             }
         }
-        public double Score { get { return PlayerTotalMass; } }
+        public int Score { get { return (int)PlayerTotalMass; } }
 
         public GameWorld(Difficulty difficulty)
             : this(difficulty, "Du", new Color(66, 135, 245))
@@ -409,8 +414,59 @@ namespace Agar3D.Model
             return true;
         }
 
+        /// <summary>
+        /// Alle eigenen Zellen naehern sich staendig an: waehrend des Cooldowns schwach zum
+        /// Gesamtschwerpunkt (CohesionSpeed), nach dem Cooldown stark zum Schwerpunkt der
+        /// merge-bereiten Zellen (MergePullSpeed). Die normale Bewegung bleibt unveraendert,
+        /// die Anziehung kommt nur additiv dazu.
+        /// </summary>
+        private static void PullCellsTogether(List<Cell> cells)
+        {
+            if (cells.Count < 2) return;
+
+            double mass = 0, cx = 0, cy = 0, cz = 0;        // Schwerpunkt aller Zellen
+            double rMass = 0, rx = 0, ry = 0, rz = 0;       // Schwerpunkt der merge-bereiten Zellen
+            int ready = 0;
+            foreach (Cell c in cells)
+            {
+                double m = c.Mass;
+                mass += m; cx += c.X * m; cy += c.Y * m; cz += c.Z * m;
+                if (c.MergeCooldown <= 0)
+                {
+                    rMass += m; rx += c.X * m; ry += c.Y * m; rz += c.Z * m;
+                    ready++;
+                }
+            }
+            cx /= mass; cy /= mass; cz /= mass;
+            if (ready >= 2) { rx /= rMass; ry /= rMass; rz /= rMass; }
+
+            foreach (Cell c in cells)
+            {
+                double tx, ty, tz, speed;
+                if (ready >= 2 && c.MergeCooldown <= 0)
+                {
+                    tx = rx; ty = ry; tz = rz; speed = MergePullSpeed;   // merge-bereit: stark zueinander
+                }
+                else
+                {
+                    tx = cx; ty = cy; tz = cz; speed = CohesionSpeed;    // Cooldown: schwach zum Gesamtschwerpunkt
+                }
+
+                double dx = tx - c.X, dy = ty - c.Y, dz = tz - c.Z;
+                double d = Math.Sqrt(dx * dx + dy * dy + dz * dz);
+                if (d < 1e-6) continue;
+                double step = Math.Min(d, speed);
+                c.X += dx / d * step;
+                c.Y += dy / d * step;
+                c.Z += dz / d * step;
+                ClampCell(c);
+            }
+        }
+
         private void SeparateOrMerge(List<Cell> cells)
         {
+            PullCellsTogether(cells);
+
             for (int i = 0; i < cells.Count; i++)
             {
                 for (int j = i + 1; j < cells.Count; j++)
@@ -424,7 +480,7 @@ namespace Agar3D.Model
                     {
                         Cell big = a.Radius >= b.Radius ? a : b;
                         Cell small = big == a ? b : a;
-                        if (d < big.Radius - small.Radius * 0.3)
+                        if (d < big.Radius + small.Radius * MergeReach)
                         {
                             double m = big.Mass + small.Mass;
                             big.X = (big.X * big.Mass + small.X * small.Mass) / m;
